@@ -1,0 +1,6 @@
+#define"stdint.h"
+#define"stdarg"
+#define"print.h"
+#define"lib.h"
+
+static struct screenbuffer screen_buffer

@@ -1,0 +1,69 @@
+#!/bin/bash
+
+# Exit immediately if any command fails
+set -e
+
+# 1. Define Toolchain (Change 'i686-elf-' to match your exact cross-compiler prefix)
+TARGET="i686-elf"
+CC="${TARGET}-gcc"
+LD="${TARGET}-gcc"
+OBJCOPY="${TARGET}-objcopy"
+AS="nasm"
+
+# Compilation Flags
+CFLAGS="-ffreestanding -O2 -Wall -Wextra -fno-pie -fno-stack-protector -nostdinc"
+LDFLAGS="-T link.lds -ffreestanding -O2 -nostdlib -no-pie"
+
+echo " Cleaning old build artifacts "
+rm -f *.o *.bin *.img *.iso kernel user/*.bin
+
+echo " Compiling Assembly Stubs "
+$AS -f bin boot.asm -o boot.bin
+$AS -f elf32 loader.asm -o loader.o
+$AS -f elf32 kernel.asm -o kernel.o
+$AS -f elf32 lib.asm -o liba.o
+$AS -f elf32 trap.asm -o trapa.o
+
+echo " Compiling C Core Source Files "
+# Dynamically finds and compiles all .c files in the directory
+for src in main.c debug.c keyboard.c lib.c memory.c print.c process.c syscall.c trap.c; do
+    if [ -f "$src" ]; then
+        obj="${src%.c}.o"
+        echo "  CC  $src -> $obj"
+        $CC -c "$src" -o "$obj" $CFLAGS
+    fi
+done
+
+echo " Compiling User Programs "
+# Compiles user programs if you have user space source setups
+# (Assumes user binaries might be statically linked or assembled separately)
+# Example if user.asm exists: $AS -f bin user.asm -o user.bin
+
+echo " Linking Kernel "
+# Tie all object files together using your custom link.lds script
+$LD $LDFLAGS -o kernel.bin loader.o kernel.o liba.o trapa.o main.o debug.o keyboard.o lib.o memory.o print.o process.o syscall.o trap.o
+
+echo " Generating Storage Images "
+# Create a standard 1.44MB floppy disk image setup
+dd if=/dev/zero of=boot.img bs=1024 count=1440
+# Write the boot sector to the very beginning of the image
+dd if=boot.bin of=boot.img conv=notrunc
+# Write the kernel right after the boot sector (adjust seek index based on your bootloader design)
+dd if=kernel.bin of=boot.img seek=1 conv=notrunc
+
+echo " Generating CD-ROM ISO "
+# Set up a folder structure for generating a bootable ISO using mkisofs/xorriso
+mkdir -p iso_root
+cp boot.img iso_root/
+if command -v mkisofs &> /dev/null; then
+    mkisofs -pad -b boot.img -R -o os.iso iso_root/
+elif command -v xorriso &> /dev/null; then
+    xorriso -as mkisofs -pad -b boot.img -R -o os.iso iso_root/
+else
+    echo "Warning: Neither mkisofs nor xorriso found. Skipping os.iso generation."
+fi
+rm -rf iso_root
+
+echo " Successful!" 
+echo "To run your OS in Bochs, use: bochs -f bochsrc"
+
