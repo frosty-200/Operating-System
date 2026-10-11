@@ -1,6 +1,6 @@
 QEMU      := qemu-system-x86_64
 CPU       := qemu64,pdpe1gb=on
-MEM       := 16384
+MEM       := 8192
 DISK      := boot.img
 FORMAT    := raw
 

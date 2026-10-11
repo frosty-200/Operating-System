@@ -4,6 +4,8 @@
 #include "lib.h"
 #include "memory.h"
 
+#define CELL_IDX(col, row) ((col)*2 + (row)*LINE_SIZE)   
+
 static struct ScreenBuffer screen_buffer = {(char*)P2V(0xb8000), 0, 0};
 
 static int udecimal_to_string(char *buffer, int position, uint64_t digits)
@@ -76,24 +78,11 @@ void write_screen(const char *buffer, int size, char color)
     int row = sb->row;
 
     for (int i = 0; i < size; i++) {       
-        if (buffer[i] == '\n') {     
-            column = 0;
+        if (buffer[i] == '\n') {                 
+	    column = 0;
             row++;
         }       
-        else if (buffer[i] == '\b') { 
-            if (column == 0 && row == 0) {
-                continue;
-            }
-            
-            if (column == 0) {
-                row--;
-                column = 80;
-            }
 
-            column -= 1;
-            sb->buffer[column*2+row*LINE_SIZE] = 0;
-            sb->buffer[column*2+row*LINE_SIZE+1] = 0;  
-        }
 	
 	else if(buffer[i] == (char)0xE3)
 	{
@@ -140,15 +129,56 @@ void write_screen(const char *buffer, int size, char color)
 			column --;
 		}
 	}
-        else {         
-            sb->buffer[column*2+row*LINE_SIZE] = buffer[i];
-            sb->buffer[column*2+row*LINE_SIZE+1] = color;
-            column++;
+	else if(buffer[i] == '\b')
+	{
+		if(column == 0 && row ==0)
+		{
+			continue;
+		}
+		if(column == 0)
+		{
+			row --;
+			column = 79;
+		}
+		column --;
+		if(sb->buffer[CELL_IDX(column,row)])
+		{
+			for(int c = column; c < 79; c++)
+			{
+				sb->buffer[c*2 + row * LINE_SIZE] = sb->buffer[(c+1) * 2 + row * LINE_SIZE];
+				sb->buffer[c*2 + row * LINE_SIZE + 1] = sb->buffer[(c+1) * 2 + row * LINE_SIZE +1];
+			
+			}
+		
+			sb->buffer[CELL_IDX(79, row)] = 0;
+			sb->buffer[CELL_IDX(79, row)+1] = 0;
+		}
 
-            if (column >= 80) {
-                column=0;
-                row++;
-            }
+	}
+
+        else
+	{
+
+		if(sb->buffer[CELL_IDX(column,row)] != '\0')
+		{
+			for(int c = 79; c > column; c--)
+			{
+				sb->buffer[c*2 + row*LINE_SIZE] = sb->buffer[(c-1)*2 + row* LINE_SIZE];
+				sb->buffer[c*2 + row*LINE_SIZE+1] = sb->buffer[(c-1)*2 + row* LINE_SIZE +1];
+			}
+			sb->buffer[79*2+row*LINE_SIZE] = 0;
+			sb->buffer[79*2+row*LINE_SIZE+1] = 0;
+		}
+
+		sb->buffer[CELL_IDX(column,row)] = buffer[i];
+		sb->buffer[CELL_IDX(column,row) +1] = color;
+		column++;
+
+            	if (column >= 80) 
+		{
+                	column=0;
+                	row++;
+            	}
         }
 
         if (row >= 25) {

@@ -14,13 +14,6 @@ static unsigned char lock_code[256] =
   [0x3A] = CAPS_LOCK
 };
 
-//static unsigned char arrows[256] = 
-//{
-//   [0x48] = UP, 
-//    [0x50] = DOWN, 
-//    [0x4B] = LEFT, 
-//    [0x4D] = RIGHT
-//};
 
 static char key_map[256] = {
     0,    0,    '1', '2', '3', '4', '5', '6', '7', '8', '9', '0',
